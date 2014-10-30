@@ -102,6 +102,13 @@ class Graph:
             elif directions["O"] > 1:
                 self.edges[i] = [x for x in self.edges[i] if x[1] != "O"]
 
+    def dfs(self):
+        """
+        Find all (weakly) connected componnents in the graph using depth-first search
+        """
+        
+
+
     def strongly_connected_components(self):
         """
         Find the strongly connected components in a graph using
@@ -121,9 +128,10 @@ class Graph:
             stack.append(node)
 
             for successor in self.edges[node]:
-                if self.edges[successor][1] == "O":
-                    visit(successor)
-                    low[node] = min(low[node], low[successor])
+                if len(self.edges[successor][1]) > 0:
+                    if self.edges[successor][1] == "O":
+                        visit(successor)
+                        low[node] = min(low[node], low[successor])
 
             if num == low[node]:
                 component = tuple(stack[stack_pos:])
