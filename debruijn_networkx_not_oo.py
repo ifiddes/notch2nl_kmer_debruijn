@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import networkx as nx
 from Bio import SeqIO
 from collections import defaultdict, Counter
@@ -7,7 +8,7 @@ def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument("--files", "-f", nargs="+", type=str, required=True, help="1 or more fasta files")
     parser.add_argument("--kmer_size", "-k", type=int, default=50, help="kmer size. Default=50")
-    parser.add_argument("--name", type=str, default="components", help="debugging file name header")
+    parser.add_argument("--name", "-n", type=str, default="components", help="debugging file name header")
     return parser.parse_args()
 
 
@@ -51,8 +52,8 @@ def prune_graph(G):
 
 def write_weak_subgraphs_to_fasta_and_sizes(G, name):
     """temp debugging code"""
-    outf = open("{}_components.fasta".format(name),"w")
-    outsizes = open("{}_component_sizes.txt".format(name),"w")
+    outf = open("{}.fasta".format(name),"w")
+    outsizes = open("{}_sizes.txt".format(name),"w")
     i=0
     tmp = []
 
@@ -70,9 +71,9 @@ def write_weak_subgraphs_to_fasta_and_sizes(G, name):
     outf.close()
     outsizes.close()
 
-def align_to_chm1(name):
-    os.system("bwa mem /cluster/home/ifiddes/chr1_fastas/chm1_chr1.fa components_notch2_all_paralogs.fasta | samtools view -bS - | bedtools bamtobed > {}.bed".format(name))
-
+def align_to_chm1_plot_histogram(name):
+    os.system("bwa mem /cluster/home/ifiddes/chr1_fastas/chm1_chr1.fa {0}.fasta | samtools view -bS - | bedtools bamtobed > {0}.bed".format(name))
+    os.system("Rscript component_histogram.R {0}_sizes.txt {0}_hist.pdf".format(name))
 
 def main(args):
     args = parse_args(args)
@@ -85,7 +86,7 @@ def main(args):
     prune_graph(G)
 
     write_weak_subgraphs_to_fasta_and_sizes(G, args.name)
-    align_to_chm1(args.name)
+    align_to_chm1_plot_histogram(args.name)
 
 
 if __name__ == '__main__':
