@@ -8,6 +8,6 @@ pdf(args[2])
 
 hist(data[,1], main="Sizes of weakly connected components", xlab="size (bp)")
 
-hist(data[,1], main='Sizes of WCCs - up to 100', xlab="size (bp)", breaks="FD", xlim=c(0,100))
+hist(data[,1], main='Sizes of WCCs - 50bp to 200bp', xlab="size (bp)", breaks="FD", xlim=c(50,200))
 
 dev.off()

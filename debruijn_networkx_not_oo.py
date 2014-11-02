@@ -52,28 +52,27 @@ def prune_graph(G):
 
 def write_weak_subgraphs_to_fasta_and_sizes(G, name):
     """temp debugging code"""
-    outf = open("{}.fasta".format(name),"w")
-    outsizes = open("{}_sizes.txt".format(name),"w")
-    i=0
-    tmp = []
-
+    outf = open("output/{}.fasta".format(name),"w")
+    outsizes = open("output/{}_sizes.txt".format(name),"w")
+    
+    i = 0
     for subgraph in nx.weakly_connected_component_subgraphs(G):
         ordered = nx.topological_sort(subgraph)
         seq = [ordered[0]]
         names = ",".join(["_".join(map(str,x)) for x in Counter(G.node[ordered[0]]["source"]).items()])
         for x in ordered[1:]:
             seq.append(x[-1])
-        tmp.append("".join(seq))
-        outf.write(">{}\n{}\n".format(str(i)+"|"+names,"".join(seq)))
+        seq = "".join(seq)
+        outf.write(">{}\n{}\n".format(str(i)+"|"+names,seq))
         outsizes.write("{}\t{}\n".format(str(i)+"|"+names,len(seq)))
-        i+=1
+        i += 1
 
     outf.close()
     outsizes.close()
 
 def align_to_chm1_plot_histogram(name):
-    os.system("bwa mem /cluster/home/ifiddes/chr1_fastas/chm1_chr1.fa {0}.fasta | samtools view -bS - | bedtools bamtobed > {0}.bed".format(name))
-    os.system("Rscript component_histogram.R {0}_sizes.txt {0}_hist.pdf".format(name))
+    os.system("bwa mem /cluster/home/ifiddes/chr1_fastas/chm1_chr1.fa output/{0}.fasta | samtools view -bS - | bedtools bamtobed > output/{0}.bed".format(name))
+    os.system("Rscript component_histogram.R output/{0}_sizes.txt output/{0}_hist.pdf".format(name))
 
 def main(args):
     args = parse_args(args)
