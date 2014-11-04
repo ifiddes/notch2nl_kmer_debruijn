@@ -1,0 +1,3 @@
+[submodule "jobTree"]
+	path = jobTree
+	url = https://github.com/benedictpaten/jobTree.git
