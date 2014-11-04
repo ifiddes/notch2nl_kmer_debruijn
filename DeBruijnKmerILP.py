@@ -7,6 +7,7 @@ from src.kmerModel import KmerModel
 from src.deBruijnGraph import DeBruijnGraph
 
 from Bio import SeqIO
+from itertools import izip_longest
 import argparse, sys, os, logging
 
 
@@ -33,7 +34,9 @@ def write_result(copy_map):
 def main(args):
     args = parse_args(args)
 
-    logger.info("Building DeBruijnGraph (main)")
+    logging.basicConfig(filename="log.txt", level=logging.DEBUG)
+    logging.info("Building DeBruijnGraph (main)")
+
     #build the DeBruijnGraph
     G = DeBruijnGraph(args.kmer_size)
     for seqRecord in SeqIO.parse(args.reference, "fasta"):
@@ -42,28 +45,31 @@ def main(args):
 
     #build the kmer_filter set if provided (likely to be VERY slow with HUGE RAM requirements)
     if args.kmer_filter is not None:
-        logger.info("Building kmer_filter (main)")
+        logging.info("Building kmer_filter (main)")
         kmer_filter = set()
-        for record in SeqIO.parse(args.kmer_filter, "fasta"):
-            kmer_filter.add(record)
+        #not using biopython for speed
+        with open(args.kmer_filter) as f:
+            for length, seq in izip_longest(*[f]*2):
+                kmer_filter.add(seq)
 
-    logger.info("Building data counts (main)")
+    logging.info("Building data counts (main)")
     #build a dict of for kmer counts seen the WGS extracted region + unmapped
-    data_counts = Counter()
-    for record in SeqIO.parse(args.sample_counts, "fasta"):
-        data_counts[str(record.seq)] = record.name
+    data_counts = {}
+    with open(args.sample_counts) as f:
+        for counts, seq in izip_longest(*[f]*2):
+            data_counts[seq] = int(counts[1:])
 
-    logger.info("Initializing kmer model (main)")
+    logging.info("Initializing kmer model (main)")
     #now we initialize and populate the kmer model
     P = KmerModel()
     P.build_blocks(G, args.breakpoint_penalty)
     #introduce the data and solve
     P.introduce_data(data_counts, kmer_filter, args.coverage, args.data_penalty)
 
-    logger.info("Solving... (main)")
+    logging.info("Solving... (main)")
     P.solve()
 
-    logger.info("Solved! Getting copy number (main)")
+    logging.info("Solved! Getting copy number (main)")
     copy_map = P.report_copy_number()
 
     write_result(copy_map)
