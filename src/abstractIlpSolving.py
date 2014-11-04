@@ -1,4 +1,8 @@
 import pulp, logging
+"""
+All code in this file written by Adam Novak
+"""
+
 
 def get_id():
     """
