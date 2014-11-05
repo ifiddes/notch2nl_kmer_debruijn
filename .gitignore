@@ -1,5 +1,7 @@
 # Output files
 output/*
+test_data/*
+wgs_kmer_counts/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
