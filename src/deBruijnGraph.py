@@ -67,6 +67,7 @@ class DeBruijnGraph(object):
         self.G.node[km1R]["count"] += 1
 
         self.has_sequences = True
+        logging.info("{} added to DeBruijnGraph.".format(name))
 
 
     def prune_graph(self):
@@ -90,6 +91,7 @@ class DeBruijnGraph(object):
                     self.G.remove_edge(n1, n2)
 
         self.is_pruned = True
+        logging.info("Graph pruned.")
 
 
     def weakly_connected_subgraphs(self):

@@ -77,10 +77,11 @@ class KmerModel(SequenceGraphLpProblem):
     construction).
     
     """
-    def __init__(self):
+    def __init__(self, paralogs):
         logging.info("Initializing KmerModel.")
         SequenceGraphLpProblem.__init__(self)
         self.blocks = []
+        self.block_map = { x : [] for x in paralogs}
 
 
     def build_blocks(self, DeBruijnGraph, breakpoint_penalty=5):
@@ -101,16 +102,13 @@ class KmerModel(SequenceGraphLpProblem):
             b = Block(subgraph, topo_sorted)
             self.blocks.append(b)
 
-        logging.info("Blocks built. Next, block_map.")
-
-        #build a map of block members by paralog
-        self.block_map = { x : [] for x in subgraph.node[topo_sorted]["sources"] }
+        logging.info("Blocks built.")
 
         for block in self.blocks:
             for para, start, stop, variable in block.variable_iter():
-                self.block_map[para].append(start, stop, variable)
+                self.block_map[para].append([start, stop, variable])
 
-        logging.info("block_map built. Next, tying variables together.")
+        logging.info("block_map built.")
 
         #now sort these maps and start tying variables together
         for para in self.block_map:

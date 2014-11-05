@@ -173,7 +173,7 @@ class SequenceGraphLpProblem(object):
             logging.info("Saving problem to {}".format(save))
             self.problem.writeLP(save)
         # Solve the problem
-        status = self.problem.solve(pulp.GLPK())
+        status = self.problem.solve(pulp.PULP_CBC_CMD())
         logging.info("Solution status: {}".format(pulp.LpStatus[status]))        
         if len(self.problem.variables()) < 20:
             # It's short enough to look at.

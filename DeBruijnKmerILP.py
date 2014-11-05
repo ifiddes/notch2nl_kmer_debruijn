@@ -39,8 +39,10 @@ def main(args):
 
     #build the DeBruijnGraph
     G = DeBruijnGraph(args.kmer_size)
+    paralogs = []
     for seqRecord in SeqIO.parse(args.reference, "fasta"):
         G.add_sequences(seqRecord)
+        paralogs.append(seqRecord.name)
     G.prune_graph()
 
     #build the kmer_filter set if provided (likely to be VERY slow with HUGE RAM requirements)
@@ -53,7 +55,7 @@ def main(args):
                 kmer_filter.add(seq)
 
     logging.info("Building data counts (main)")
-    #build a dict of for kmer counts seen the WGS extracted region + unmapped
+    #build a dict of kmer counts seen the WGS extracted region + unmapped
     data_counts = {}
     with open(args.sample_counts) as f:
         for counts, seq in izip_longest(*[f]*2):
@@ -61,7 +63,7 @@ def main(args):
 
     logging.info("Initializing kmer model (main)")
     #now we initialize and populate the kmer model
-    P = KmerModel()
+    P = KmerModel(paralogs)
     P.build_blocks(G, args.breakpoint_penalty)
     #introduce the data and solve
     P.introduce_data(data_counts, kmer_filter, args.coverage, args.data_penalty)
@@ -73,12 +75,6 @@ def main(args):
     copy_map = P.report_copy_number()
 
     write_result(copy_map)
-
-
-
-
-
-
 
 
 if __name__ == '__main__':
