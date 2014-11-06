@@ -102,13 +102,13 @@ class KmerModel(SequenceGraphLpProblem):
             b = Block(subgraph, topo_sorted)
             self.blocks.append(b)
 
-        logging.info("Blocks built.")
+        logging.debug("Blocks built.")
 
         for block in self.blocks:
             for para, start, stop, variable in block.variable_iter():
                 self.block_map[para].append([start, stop, variable])
 
-        logging.info("block_map built.")
+        logging.debug("block_map built.")
 
         #now sort these maps and start tying variables together
         for para in self.block_map:
@@ -120,7 +120,7 @@ class KmerModel(SequenceGraphLpProblem):
                 var_a, var_b = s[i-1][2], s[i][2]
                 self.constrain_approximately_equal(var_a, var_b, breakpoint_penalty)
 
-        logging.info("Variables tied together.")
+        logging.debug("Block variables tied together; block_map sorted.")
 
 
     def introduce_data(self, kmerCounts, kmerFilter=None, coverage=30, data_penalty=50):
@@ -138,52 +138,50 @@ class KmerModel(SequenceGraphLpProblem):
         This will be used to normalize the counts to account for variable block sizes.
 
         """
-        logging.info("Starting to introduce {} kmer counts to model.".format(len(kmerCounts)))
-        #this may be kind of slow, but not sure how not to do this in O(N^2)
+        logging.info("Starting to introduce {} kmers to model.".format(len(kmerCounts)))
+        i = 0
+
         for block in self.blocks:
-            count = 0
-            kmers = block.get_kmers()
 
-            if kmerFilter is None:
-                for k, c in kmerCounts.iteritems():
-                    count += c
-            else:
+            i += 1
+            if i % 100 == 0:
+                logging.debug("Examined {} windows".format(i))
+
+            count = sum(kmerCounts.get(x, 0) for x in block.get_kmers())
+            
+            if kmerFilter is not None:
                 #store how many kmers we ditch to shrink block size accordingly
-                block_size_adjust = 0
-                for k, c in kmerCounts.iteritems():
-                    if k not in kmerFilter:
-                        count += c
-                    else:
-                        block_size_adjust += 1
-
-            #expected coverage is the genome-wide per-base coverage times the block size
-            if kmerFilter is None:
-                expected_coverage = coverage * block.get_size()
+                block_size_adjust = len(block.get_kmers().intersection(kmerFilter))
+                #expected coverage is the genome-wide per-base coverage times the block size
+                expected_coverage = coverage * ( block.get_size() - block_size_adjust )      
             else:
-                expected_coverage = coverage * ( block.get_size() - block_size_adjust )
-
+                expected_coverage = coverage * block.get_size()
+                
             #var_a is the count of kmers in this window divided by the per-base coverage
-            var_a = count / expected_coverage
+            data_val = count / expected_coverage
+            
             #var_b is the sum of all LP variables in the window
-            var_b = pulp.lpSum(block.variables())
+            window_lp_sum = self.penalties.get_variable()
+            #constrain var_b as equal to the sum of LP variables (only way to constrain sum)
+            self.problem += window_lp_sum == sum(block.get_variables())
             #constrain approximately equal subject to a data_penalty
-            self.constrain_approximately_equal(var_a, var_b, data_penalty)
+            self.constrain_approximately_equal(data_val, window_lp_sum, data_penalty)
 
 
-        def report_copy_number(self):
-            """
-            Reports copy number from solved ILP problem. Loops over the block_map class member
-            and reports the linear copy number calls for each paralog.
-            """
-            assert self.is_solved()
-            logging.info("Reporting copy number from solved problem")
+    def report_copy_number(self):
+        """
+        Reports copy number from solved ILP problem. Loops over the block_map class member
+        and reports the linear copy number calls for each paralog.
+        """
+        assert self.is_solved
+        logging.info("Reporting copy number from solved problem")
 
-            copy_map = { x : [] for x in self.block_map.keys()}
+        copy_map = { x : [] for x in self.block_map.keys()}
 
-            #self.block_map is sorted by start position, so we can just loop through it
-            for para in self.block_map:
-                for start, stop, var in self.block_map[para]:
-                    c = pulp.value(var)
-                    copy_map[para].append([start, c])
+        #self.block_map is sorted by start position, so we can just loop through it
+        for para in self.block_map:
+            for start, stop, var in self.block_map[para]:
+                c = pulp.value(var)
+                copy_map[para].append([start, c])
 
-            return copy_map
+        return copy_map
