@@ -13,11 +13,13 @@ class Block(object):
     Also stores all of the kmers in this block as a set.
 
     """
-    def __init__(self, subgraph, topo_sorted):
+    def __init__(self, subgraph, topo_sorted, default_ploidy=2):
         #a set of all kmers represented by this block
         self.kmers = set()
         for kmer in topo_sorted:
-            self.kmers.add(kmer)
+            #blocks do not contain kmers that are elsewhere in the genome
+            if 'bad' in subgraph.node[kmer]:
+                self.kmers.add(kmer)
 
         #number of bases in this window
         self.size = len(self.kmers) + len(kmer)
@@ -26,18 +28,22 @@ class Block(object):
         #one variable for each instance of a input sequence
         self.variables = {}
         
-        #since each node has the same set of sequences, and
-        #we have a topological sort, we can pull down the positions
-        #of the first and last node
-        
-        start_kmer, stop_kmer = topo_sorted[0], topo_sorted[-1]
-        start_node, stop_node = subgraph.node[start_kmer], subgraph.node[stop_kmer]
-        
-        #build variables for each instance
-        for para, start, stop in izip(start_node["source"], start_node["pos"], stop_node["pos"]):
-            stop = stop + len(kmer) #off by one?
-            v = pulp.LpVariable("{}:{}-{}".format(para, start, stop))
-            self.variables[(para, start, stop)] = v
+        #make sure we are not adding variables to a 0-size block
+        #but we still want the block to exist for the block_map
+        if self.size > 0:
+            #since each node has the same set of sequences, and
+            #we have a topological sort, we can pull down the positions
+            #of the first and last node
+            
+            start_kmer, stop_kmer = topo_sorted[0], topo_sorted[-1]
+            start_node, stop_node = subgraph.node[start_kmer], subgraph.node[stop_kmer]
+            
+            #build variables for each instance
+            for para, start, stop in izip(start_node["source"], start_node["pos"], stop_node["pos"]):
+                stop = stop + len(kmer) #off by one?
+                #restrict the variable to be an integer with default value of 2
+                v = pulp.LpVariable("{}:{}-{}".format(para, start, stop), 2, cat="Integer")
+                self.variables[(para, start, stop)] = v
 
     def kmer_iter(self):
         """iterator over all kmers in this block"""
@@ -78,13 +84,13 @@ class KmerModel(SequenceGraphLpProblem):
     
     """
     def __init__(self, paralogs):
-        logging.info("Initializing KmerModel.")
+        logging.debug("Initializing KmerModel.")
         SequenceGraphLpProblem.__init__(self)
         self.blocks = []
-        self.block_map = { x : [] for x in paralogs}
+        self.block_map = { x : [] for x in paralogs }
 
 
-    def build_blocks(self, DeBruijnGraph, breakpoint_penalty=5):
+    def build_blocks(self, DeBruijnGraph, breakpoint_penalty=25):
         """
         Builds a ILP kmer model. Input:
 
@@ -95,7 +101,7 @@ class KmerModel(SequenceGraphLpProblem):
         """
         #make sure the graph has been initialized and pruned
         assert DeBruijnGraph.is_pruned and DeBruijnGraph.has_sequences
-        logging.info("Building blocks in KmerModel.")
+        logging.debug("Building blocks in KmerModel.")
 
         #build the blocks, don't tie them together yet
         for subgraph, topo_sorted in DeBruijnGraph.weakly_connected_subgraphs():
@@ -123,7 +129,7 @@ class KmerModel(SequenceGraphLpProblem):
         logging.debug("Block variables tied together; block_map sorted.")
 
 
-    def introduce_data(self, kmerCounts, kmerFilter=None, coverage=30, data_penalty=50):
+    def introduce_data(self, kmerCounts, coverage=30, data_penalty=50):
         """
         Introduces data to this ILP kmer model. For this, the input is assumed to be a dict 
         representing the results of kmer counting a WGS dataset (format seq:count)
@@ -131,41 +137,34 @@ class KmerModel(SequenceGraphLpProblem):
         data_penalty represents the penalty in the ILP model for the copy number of each instance
         to deviate from the data.
 
-        kmerFilter can be a set of all kmers seen elsewhere in the genome not in the region of
-        interest. If provided, any kmer which is in that set will not be tied to the data.
-
         coverage represents the best guess of per-base coverage across the genome for this dataset.
-        This will be used to normalize the counts to account for variable block sizes.
+        This will be used to normalize the counts to account for variable block sizes. Getting this
+        number correct is kind of important.
 
         """
-        logging.info("Starting to introduce {} kmers to model.".format(len(kmerCounts)))
+        logging.debug("Starting to introduce {} kmers to model.".format(len(kmerCounts)))
         i = 0
 
         for block in self.blocks:
-
             i += 1
             if i % 100 == 0:
                 logging.debug("Examined {} windows".format(i))
 
-            count = sum(kmerCounts.get(x, 0) for x in block.get_kmers())
-            
-            if kmerFilter is not None:
-                #store how many kmers we ditch to shrink block size accordingly
-                block_size_adjust = len(block.get_kmers().intersection(kmerFilter))
-                #expected coverage is the genome-wide per-base coverage times the block size
-                expected_coverage = coverage * ( block.get_size() - block_size_adjust )      
-            else:
-                expected_coverage = coverage * block.get_size()
+            if block.get_size() > 0:
+                count = sum(kmerCounts.get(x, 0) for x in block.get_kmers())
                 
-            #var_a is the count of kmers in this window divided by the per-base coverage
-            data_val = count / expected_coverage
-            
-            #var_b is the sum of all LP variables in the window
-            window_lp_sum = self.penalties.get_variable()
-            #constrain var_b as equal to the sum of LP variables (only way to constrain sum)
-            self.problem += window_lp_sum == sum(block.get_variables())
-            #constrain approximately equal subject to a data_penalty
-            self.constrain_approximately_equal(data_val, window_lp_sum, data_penalty)
+                #expected coverage is the genome-wide per-base coverage times the block size
+                expected_coverage = coverage * block.get_size()
+                    
+                #var_a is the count of kmers in this window divided by the per-base coverage
+                data_val = count / expected_coverage
+                
+                #var_b is the sum of all LP variables in the window
+                window_lp_sum = self.penalties.get_variable()
+                #constrain var_b as equal to the sum of LP variables (only way to constrain sum)
+                self.problem += window_lp_sum == sum(block.get_variables())
+                #constrain approximately equal subject to a data_penalty
+                self.constrain_approximately_equal(data_val, window_lp_sum, data_penalty * block.get_size())
 
 
     def report_copy_number(self):
@@ -174,7 +173,7 @@ class KmerModel(SequenceGraphLpProblem):
         and reports the linear copy number calls for each paralog.
         """
         assert self.is_solved
-        logging.info("Reporting copy number from solved problem")
+        logging.debug("Reporting copy number from solved problem")
 
         copy_map = { x : [] for x in self.block_map.keys()}
 

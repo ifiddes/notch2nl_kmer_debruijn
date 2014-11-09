@@ -28,7 +28,7 @@ class DeBruijnGraph(object):
 
     """
     def __init__(self, kmer_size):
-        logging.info("Initializing a DeBruijnGraph")
+        logging.debug("Initializing a DeBruijnGraph")
 
         self.kmer_size = kmer_size
         self.G = nx.DiGraph()
@@ -67,7 +67,7 @@ class DeBruijnGraph(object):
         self.G.node[km1R]["count"] += 1
 
         self.has_sequences = True
-        logging.info("{} added to DeBruijnGraph.".format(name))
+        logging.debug("{} added to DeBruijnGraph.".format(name))
 
 
     def prune_graph(self):
@@ -91,7 +91,7 @@ class DeBruijnGraph(object):
                     self.G.remove_edge(n1, n2)
 
         self.is_pruned = True
-        logging.info("Graph pruned.")
+        logging.debug("Graph pruned.")
 
 
     def weakly_connected_subgraphs(self):
@@ -101,3 +101,17 @@ class DeBruijnGraph(object):
         """
         for subgraph in nx.weakly_connected_component_subgraphs(self.G):
             yield (subgraph, nx.topological_sort(subgraph))
+
+    def flag_nodes(self, kmer_iter):
+        """
+        Iterates over a kmer_iter and flags nodes as being bad.
+        This is used to flag nodes whose kmer is represented elsewhere
+        in the genome, so that we won't count it later.
+        Therefore, kmer_iter should be an iterable yielding
+        sequence strings from a Jellyfish count file.
+        Note that the kmer counts should be k-1mers
+
+        """
+        for k1mer in kmer_iter:
+            if self.G.has_node(k1mer):
+                self.G.node[k1mer]['bad'] = True
