@@ -13,10 +13,15 @@ Serializes this to disk for use by DeBruijnKmerILP.py
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--reference", "-r", type=str, required=True, help="Reference fasta file")
-    parser.add_argument("--out", "-o", type=argparse.FileType("wb"), help="File to write pickled DeBruijnGraph to. Default is 'graphs/dbg.pickle'")
-    parser.add_argument("--kmer_size", "-k", type=int, default=50, help="kmer size. Default=50")
-    parser.add_argument("--genome_counts", "-g", type=str, help="Jellyfish kmer count fasta over genome sequences NOT containing region of interest. Counts should be of k-1mers (49mer).")
+    parser.add_argument("--reference", "-r", type=str, required=True, 
+        help="Reference fasta file")
+    parser.add_argument("--out", "-o", type=argparse.FileType("wb"), 
+        help="File to write pickled DeBruijnGraph to. Default is 'graphs/dbg.pickle'")
+    parser.add_argument("--kmer_size", "-k", type=int, default=50, 
+        help="kmer size. Default=50")
+    parser.add_argument("--genome_counts", "-g", type=str, 
+        help="Jellyfish kmer count fasta over genome sequences NOT containing region of interest. \
+        Counts should be of k-1mers (49mer).")
     return parser.parse_args()
 
 
@@ -31,14 +36,15 @@ def main(args):
 
     logging.basicConfig(filename="log.txt", format='%(asctime)-4s %(levelname)-6s %(message)s',
                     datefmt='%m-%d %H:%M', level=logging.DEBUG, filemode="w")
+    
     logging.info("Building DeBruijnGraph.")
-
-    #build the DeBruijnGraph
     G = DeBruijnGraph(args.kmer_size)
     paralogs = []
+    
     for seqRecord in SeqIO.parse(args.reference, "fasta"):
         G.add_sequences(seqRecord)
         paralogs.append(seqRecord.name)
+    
     G.prune_graph()
 
     logging,info("Reading genome kmer counts.")

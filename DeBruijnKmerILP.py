@@ -14,11 +14,17 @@ import argparse, sys, os, logging
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--graph", "-g", type=argparse.FileType("rb"), help="Pickled DeBruijnGraph to load. Default is 'graphs/dbg.pickle'")
-    parser.add_argument("--sample_counts", "-c", type=str, required=True, help="Jellyfish k-1mer (49bp) counts for sample whose CNV we are interested in.")
-    parser.add_argument("--breakpoint_penalty", "-b", type=float, help="Breakpoint penalty for ILP.", default=50)
-    parser.add_argument("--data_penalty", "-d", type=float, help="Data penalty for ILP.", default=5)
-    parser.add_argument("--coverage", "-cov", type=float, help="Expected per-base coverage for this WGS.", default=30)
+    parser.add_argument("--graph", "-g", type=argparse.FileType("rb"), 
+        help="Pickled DeBruijnGraph to load. Default is 'graphs/dbg.pickle'",
+        default="graphs/dbg.pickle")
+    parser.add_argument("--sample_counts", "-c", type=str, required=True, 
+        help="Jellyfish k-1mer (49bp) counts for sample whose CNV we are interested in.")
+    parser.add_argument("--breakpoint_penalty", "-b", type=float, 
+        help="Breakpoint penalty for ILP.", default=50)
+    parser.add_argument("--data_penalty", "-d", type=float, 
+        help="Data penalty for ILP.", default=5)
+    parser.add_argument("--coverage", "-cov", type=float, 
+        help="Expected per-base coverage for this WGS.", default=30)
     return parser.parse_args()
 
 
@@ -46,7 +52,6 @@ def main(args):
     logging.info("Initializing kmer model.")
     P = KmerModel(paralogs)
     P.build_blocks(G, args.breakpoint_penalty)
-
 
     logging.info("Introducing kmer count data to model.")
     P.introduce_data(data_counts, args.coverage, args.data_penalty)

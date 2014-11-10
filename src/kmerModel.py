@@ -22,28 +22,31 @@ class Block(object):
                 self.kmers.add(kmer)
 
         #number of bases in this window
-        self.size = len(self.kmers) + len(kmer)
+        if len(self.kmers) > 0:
+            self.size = len(self.kmers) + len(kmer) - 1
+        else:
+            self.size = 0
 
         #a mapping of paralog, position pairs to variables
         #one variable for each instance of a input sequence
         self.variables = {}
+
+        #since each node has the same set of sequences, and
+        #we have a topological sort, we can pull down the positions
+        #of the first and last node
         
-        #make sure we are not adding variables to a 0-size block
-        #but we still want the block to exist for the block_map
-        if self.size > 0:
-            #since each node has the same set of sequences, and
-            #we have a topological sort, we can pull down the positions
-            #of the first and last node
-            
-            start_kmer, stop_kmer = topo_sorted[0], topo_sorted[-1]
-            start_node, stop_node = subgraph.node[start_kmer], subgraph.node[stop_kmer]
-            
-            #build variables for each instance
-            for para, start, stop in izip(start_node["source"], start_node["pos"], stop_node["pos"]):
-                stop = stop + len(kmer) #off by one?
-                #restrict the variable to be an integer with default value of 2
-                v = pulp.LpVariable("{}:{}-{}".format(para, start, stop), 2, cat="Integer")
-                self.variables[(para, start, stop)] = v
+        start_kmer, stop_kmer = topo_sorted[0], topo_sorted[-1]
+        start_node, stop_node = subgraph.node[start_kmer], subgraph.node[stop_kmer]
+        
+        #build variables for each instance
+        for para, start, stop in izip(start_node["source"], start_node["pos"], stop_node["pos"]):
+            stop = stop + len(kmer) #off by one?
+            #restrict the variable to be an integer with default_ploidy
+            if self.get_size() != 0:
+                self.variables[(para, start, stop)] = pulp.LpVariable("{}:{}-{}".format(
+                    para, start, stop), default_ploidy, cat="Integer")
+            else:
+                self.variables[(para, start, stop)] = None
 
     def kmer_iter(self):
         """iterator over all kmers in this block"""
@@ -118,12 +121,14 @@ class KmerModel(SequenceGraphLpProblem):
 
         #now sort these maps and start tying variables together
         for para in self.block_map:
-            s = sorted(self.block_map[para], key = lambda x: x[0])
-            #save this sorted version for later
-            self.block_map[para] = s
+            self.block_map[para] = sorted(self.block_map[para], key = lambda x: x[0])
+
             #check for off by 1 here?
-            for i in xrange(1, len(s)):
-                var_a, var_b = s[i-1][2], s[i][2]
+            #filter out all blocks without variables (no kmers)
+            variables = [v for s, st, v in self.block_map[para] if v is not None]
+
+            for i in xrange(1, len(variables)):
+                var_a, var_b = s[i-1], s[i]
                 self.constrain_approximately_equal(var_a, var_b, breakpoint_penalty)
 
         logging.debug("Block variables tied together; block_map sorted.")
@@ -161,8 +166,10 @@ class KmerModel(SequenceGraphLpProblem):
                 
                 #var_b is the sum of all LP variables in the window
                 window_lp_sum = self.penalties.get_variable()
+                
                 #constrain var_b as equal to the sum of LP variables (only way to constrain sum)
                 self.problem += window_lp_sum == sum(block.get_variables())
+                
                 #constrain approximately equal subject to a data_penalty
                 self.constrain_approximately_equal(data_val, window_lp_sum, data_penalty * block.get_size())
 
