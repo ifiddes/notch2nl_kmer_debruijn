@@ -46,8 +46,7 @@ def main(args):
     G = pickle.load(args.graph)
 
     logging.info("Building data counts.")
-    with open(args.sample_counts) as f:
-        data_counts = {seq.rstrip() : int(count.rstrip().lstrip(">")) for count, seq in izip(*[f]*2)}
+    data_counts = {seq.rstrip() : int(count.rstrip().lstrip(">")) for count, seq in izip(*[f]*2) if seq.rstrip() in G.G.nodes()}
 
     logging.info("Initializing kmer model.")
     P = KmerModel(paralogs)
