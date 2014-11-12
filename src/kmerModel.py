@@ -136,7 +136,7 @@ class KmerModel(SequenceGraphLpProblem):
             variables = [v for s, st, v in self.block_map[para] if v is not None]
 
             for i in xrange(1, len(variables)):
-                var_a, var_b = s[i-1], s[i]
+                var_a, var_b = variables[i-1], variables[i]
                 self.constrain_approximately_equal(var_a, var_b, breakpoint_penalty)
 
         logging.debug("Block variables tied together; block_map sorted.")
@@ -191,7 +191,8 @@ class KmerModel(SequenceGraphLpProblem):
         #self.block_map is sorted by start position, so we can just loop through it
         for para in self.block_map:
             for start, stop, var in self.block_map[para]:
-                c = pulp.value(var)
-                copy_map[para].append([start, c])
+                if var is not None:
+                    c = pulp.value(var)
+                    copy_map[para].append([start, c])
 
         return copy_map

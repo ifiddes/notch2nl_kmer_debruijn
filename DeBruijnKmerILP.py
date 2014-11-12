@@ -43,6 +43,7 @@ def main(args):
     logging.info("Loading DeBruijnGraph.")
     G = pickle.load(args.graph)
     #tmp code because I built a serialized DBG without paralogs stored...
+    #new version of deBruijnGraph.py stores paralogs for me
     paralogs = ["Notch2","Notch2NL-A","Notch2NL-B","Notch2NL-C","Notch2NL-D"]
 
     logging.info("Building data counts.")
@@ -52,6 +53,7 @@ def main(args):
         rm = ">\n"
         #can fix this G.G once you rebuild the DBG
         kmers = {x for x in G.G.nodes() if 'bad' in G.G.node[x]}
+        #kmers = G.kmers()
         data_counts = {seq.translate(None, rm) : int(count.translate(None, rm)) for
             count, seq in izip(*[f]*2) if seq.translate(None, rm) in kmers}
 
@@ -60,13 +62,17 @@ def main(args):
 
     logging.info("Initializing kmer model.")
     P = KmerModel(paralogs)
+    #P = KmerModel(G.paralogs())
     P.build_blocks(G, args.breakpoint_penalty)
 
     logging.info("Introducing kmer count data to model.")
     P.introduce_data(data_counts, args.data_penalty)
 
     logging.info("Solving ILP model.")
-    P.solve(save="test.lp")
+    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+        P.solve(save="test.lp")
+    else:
+        P.solve()
 
     logging.info("Solved! Getting copy number.")
     copy_map = P.report_copy_number()

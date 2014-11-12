@@ -35,6 +35,7 @@ class DeBruijnGraph(object):
         self.has_sequences = False
         self.is_pruned = False
         self.paralogs = set()
+        self.kmers = set()
 
     def paralogs(self):
         return list(self.paralogs)
@@ -44,6 +45,13 @@ class DeBruijnGraph(object):
 
     def node(self):
         return self.G.node
+
+    def kmers(self):
+        return self.kmers
+
+    def kmer_iter(self):
+        for x in self.kmers:
+            yield x
 
 
     def add_sequences(self, seqRecord):
@@ -71,11 +79,13 @@ class DeBruijnGraph(object):
                 self.G.add_node(km1R, pos=[], source=[], count=0)
 
             self.G.add_edge(km1L, km1R)
+            self.kmers.add(km1L)
 
         #need to count the last kmer also
         self.G.node[km1R]["pos"].append(i+1)
         self.G.node[km1R]["source"].append(name)
         self.G.node[km1R]["count"] += 1
+        self.kmers.add(km1R)
 
         self.has_sequences = True
         logging.debug("{} added to DeBruijnGraph.".format(name))
