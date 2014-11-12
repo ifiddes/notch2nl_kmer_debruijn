@@ -34,7 +34,7 @@ def parse_jellyfish_counts(file_path):
 def main(args):
     args = parse_args(args)
 
-    logging.basicConfig(filename="log.txt", format='%(asctime)-4s %(levelname)-6s %(message)s',
+    logging.basicConfig(filename="build_log.txt", format='%(asctime)-4s %(levelname)-6s %(message)s',
                     datefmt='%m-%d %H:%M', level=logging.DEBUG, filemode="w")
     
     logging.info("Building DeBruijnGraph.")
@@ -47,7 +47,7 @@ def main(args):
     
     G.prune_graph()
 
-    logging,info("Reading genome kmer counts.")
+    logging.info("Reading genome kmer counts.")
     if args.genome_counts is not None:
         G.flag_nodes(parse_jellyfish_counts(args.genome_counts))
 
