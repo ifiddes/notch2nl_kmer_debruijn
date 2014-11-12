@@ -34,6 +34,16 @@ class DeBruijnGraph(object):
         self.G = nx.DiGraph()
         self.has_sequences = False
         self.is_pruned = False
+        self.paralogs = set()
+
+    def paralogs(self):
+        return list(self.paralogs)
+
+    def nodes(self):
+        return self.G.nodes()
+
+    def node(self):
+        return self.G.node
 
 
     def add_sequences(self, seqRecord):
@@ -44,6 +54,7 @@ class DeBruijnGraph(object):
         """
         k = self.kmer_size - 1
         name = seqRecord.name
+        self.paralogs.add(name)
 
         for i in xrange(len(seqRecord)-k):
             #left and right k-1mers

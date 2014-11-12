@@ -9,7 +9,7 @@ from src.deBruijnGraph import DeBruijnGraph
 from Bio import SeqIO
 from itertools import izip
 import cPickle as pickle
-import argparse, sys, os, logging
+import argparse, sys, os, logging, string
 
 
 def parse_args(args):
@@ -20,11 +20,9 @@ def parse_args(args):
     parser.add_argument("--sample_counts", "-c", type=str, required=True, 
         help="Jellyfish k-1mer (49bp) counts for sample whose CNV we are interested in.")
     parser.add_argument("--breakpoint_penalty", "-b", type=float, 
-        help="Breakpoint penalty for ILP.", default=50)
+        help="Breakpoint penalty for ILP.", default=25)
     parser.add_argument("--data_penalty", "-d", type=float, 
-        help="Data penalty for ILP.", default=5)
-    parser.add_argument("--coverage", "-cov", type=float, 
-        help="Expected per-base coverage for this WGS.", default=30)
+        help="Data penalty for ILP.", default=50)
     return parser.parse_args()
 
 
@@ -44,16 +42,28 @@ def main(args):
     
     logging.info("Loading DeBruijnGraph.")
     G = pickle.load(args.graph)
+    #tmp code because I built a serialized DBG without paralogs stored...
+    paralogs = ["Notch2","Notch2NL-A","Notch2NL-B","Notch2NL-C","Notch2NL-D"]
 
     logging.info("Building data counts.")
-    data_counts = {seq.rstrip() : int(count.rstrip().lstrip(">")) for count, seq in izip(*[f]*2) if seq.rstrip() in G.G.nodes()}
+    with open(args.sample_counts) as f:
+        #using seq.translate has been shown to be faster than using any other means
+        #of removing characters from a string
+        rm = ">\n"
+        #can fix this G.G once you rebuild the DBG
+        kmers = {x for x in G.G.nodes() if 'bad' in G.G.node[x]}
+        data_counts = {seq.translate(None, rm) : int(count.translate(None, rm)) for
+            count, seq in izip(*[f]*2) if seq.translate(None, rm) in kmers}
+
+    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+        pickle.dump(data_counts,open("tmp_kmer_model.pickle","wb"))
 
     logging.info("Initializing kmer model.")
     P = KmerModel(paralogs)
     P.build_blocks(G, args.breakpoint_penalty)
 
     logging.info("Introducing kmer count data to model.")
-    P.introduce_data(data_counts, args.coverage, args.data_penalty)
+    P.introduce_data(data_counts, args.data_penalty)
 
     logging.info("Solving ILP model.")
     P.solve(save="test.lp")

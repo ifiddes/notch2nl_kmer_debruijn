@@ -91,6 +91,14 @@ class KmerModel(SequenceGraphLpProblem):
         SequenceGraphLpProblem.__init__(self)
         self.blocks = []
         self.block_map = { x : [] for x in paralogs }
+        self.built = False
+        self.has_data = False
+
+    def has_data(self):
+        return self.has_data
+
+    def is_built(self):
+        return self.built
 
 
     def build_blocks(self, DeBruijnGraph, breakpoint_penalty=25):
@@ -132,9 +140,10 @@ class KmerModel(SequenceGraphLpProblem):
                 self.constrain_approximately_equal(var_a, var_b, breakpoint_penalty)
 
         logging.debug("Block variables tied together; block_map sorted.")
+        self.built = True
 
 
-    def introduce_data(self, kmerCounts, coverage=30, data_penalty=50):
+    def introduce_data(self, kmerCounts, data_penalty=50):
         """
         Introduces data to this ILP kmer model. For this, the input is assumed to be a dict 
         representing the results of kmer counting a WGS dataset (format seq:count)
@@ -158,12 +167,6 @@ class KmerModel(SequenceGraphLpProblem):
             if block.get_size() > 0:
                 count = sum(kmerCounts.get(x, 0) for x in block.get_kmers())
                 
-                #expected coverage is the genome-wide per-base coverage times the block size
-                expected_coverage = coverage * block.get_size()
-                    
-                #var_a is the count of kmers in this window divided by the per-base coverage
-                data_val = count / expected_coverage
-                
                 #var_b is the sum of all LP variables in the window
                 window_lp_sum = self.penalties.get_variable()
                 
@@ -171,8 +174,9 @@ class KmerModel(SequenceGraphLpProblem):
                 self.problem += window_lp_sum == sum(block.get_variables())
                 
                 #constrain approximately equal subject to a data_penalty
-                self.constrain_approximately_equal(data_val, window_lp_sum, data_penalty * block.get_size())
+                self.constrain_approximately_equal(count, window_lp_sum, data_penalty * block.get_size())
 
+        self.has_data = True
 
     def report_copy_number(self):
         """
