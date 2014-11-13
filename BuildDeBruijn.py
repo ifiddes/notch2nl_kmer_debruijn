@@ -16,7 +16,7 @@ def parse_args(args):
     parser.add_argument("--reference", "-r", type=str, required=True, 
         help="Reference fasta file")
     parser.add_argument("--out", "-o", type=argparse.FileType("wb"), 
-        help="File to write pickled DeBruijnGraph to. Default is 'graphs/dbg.pickle'")
+        help="File to write pickled DeBruijnGraph to. Default is 'graphs/dbg.pickle'", default="graphs/dbg.pickle")
     parser.add_argument("--kmer_size", "-k", type=int, default=50, 
         help="kmer size. Default=50")
     parser.add_argument("--genome_counts", "-g", type=str, 
