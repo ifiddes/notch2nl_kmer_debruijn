@@ -9,16 +9,21 @@ from src.deBruijnGraph import DeBruijnGraph
 from Bio import SeqIO
 from itertools import izip
 import cPickle as pickle
-import argparse, sys, os, logging, string
+import argparse, sys, os, logging, string, gzip
 
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
+    cwd = os.getcwd()
     parser.add_argument("--graph", "-g", type=argparse.FileType("rb"), 
         help="Pickled DeBruijnGraph to load. Default is 'graphs/dbg.pickle'",
-        default="graphs/dbg.pickle")
+        default=os.path.join(cwd,"notch2nl_kmer_debruijn/graphs/dbg.pickle"))
     parser.add_argument("--sample_counts", "-c", type=str, required=True, 
-        help="Jellyfish k-1mer (49bp) counts for sample whose CNV we are interested in.")
+        help="Jellyfish k-1mer (49bp) counts for this sample.")
+    parser.add_argument("--normalizing_counts", "-n", type=int, required=True,
+        help="Samtools view -c output over normalizing region for this sample.")
+    parser.add_argument("--normalizing_size", "-s", type=int, required=True, default=1408091,
+        help="Normalizing size that --normalizing_counts was drawn from.")
     parser.add_argument("--breakpoint_penalty", "-b", type=float, 
         help="Breakpoint penalty for ILP.", default=2500)
     parser.add_argument("--data_penalty", "-d", type=float, 
@@ -42,27 +47,23 @@ def main(args):
     
     logging.info("Loading DeBruijnGraph.")
     G = pickle.load(args.graph)
-    #tmp code because I built a serialized DBG without paralogs stored...
-    #new version of deBruijnGraph.py stores paralogs for me
-    paralogs = ["Notch2","Notch2NL-A","Notch2NL-B","Notch2NL-C","Notch2NL-D"]
 
     logging.info("Building data counts.")
-    with open(args.sample_counts) as f:
+    with gzip.open(args.sample_counts, "rb") as f:
         #using seq.translate has been shown to be faster than using any other means
         #of removing characters from a string
         rm = ">\n"
-        #can fix this G.G once you rebuild the DBG
-        kmers = {x for x in G.G.nodes() if 'bad' in G.G.node[x]}
         #kmers = G.kmers()
         data_counts = {seq.translate(None, rm) : int(count.translate(None, rm)) for
-            count, seq in izip(*[f]*2) if seq.translate(None, rm) in kmers}
+            count, seq in izip(*[f]*2) if seq.translate(None, rm) in G.kmers}
 
-    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-        pickle.dump(data_counts,open("tmp_data_counts.pickle","wb"))
+    coverage = 1.0 * normalizing_counts / normalizing_size
+
+    #if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+    #    pickle.dump(data_counts,open("tmp_data_counts.pickle","wb"))
 
     logging.info("Initializing kmer model.")
-    P = KmerModel(paralogs)
-    #P = KmerModel(G.paralogs())
+    P = KmerModel(G.paralogs, coverage)
     P.build_blocks(G, args.breakpoint_penalty)
 
     logging.info("Introducing kmer count data to model.")

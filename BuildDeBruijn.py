@@ -1,4 +1,4 @@
-import argparse, sys, os, logging
+import argparse, sys, os, logging, string
 from itertools import izip
 import cPickle as pickle
 
@@ -16,19 +16,20 @@ def parse_args(args):
     parser.add_argument("--reference", "-r", type=str, required=True, 
         help="Reference fasta file")
     parser.add_argument("--out", "-o", type=argparse.FileType("wb"), 
-        help="File to write pickled DeBruijnGraph to. Default is 'graphs/dbg.pickle'", default="graphs/dbg.pickle")
+        help="File to write pickled DeBruijnGraph to. Default is 'graphs/dbg.pickle'",
+        default="graphs/dbg.pickle")
     parser.add_argument("--kmer_size", "-k", type=int, default=50, 
         help="kmer size. Default=50")
-    parser.add_argument("--genome_counts", "-g", type=str, 
+    parser.add_argument("--genome_counts", "-g", type=argparse.FileType("r"), required=True,
         help="Jellyfish kmer count fasta over genome sequences NOT containing region of interest. \
         Counts should be of k-1mers (49mer).")
     return parser.parse_args()
 
 
-def parse_jellyfish_counts(file_path):
-    with open(file_path) as f:
-        for count, seq in izip(*[f]*2):
-            yield seq.rstrip()
+def parse_jellyfish_counts(file_handle):
+    rm = ">\n"
+    for count, seq in izip(*[file_handle]*2):
+        yield seq.translate(None, rm)
 
 
 def main(args):
@@ -39,17 +40,14 @@ def main(args):
     
     logging.info("Building DeBruijnGraph.")
     G = DeBruijnGraph(args.kmer_size)
-    paralogs = []
     
     for seqRecord in SeqIO.parse(args.reference, "fasta"):
         G.add_sequences(seqRecord)
-        paralogs.append(seqRecord.name)
     
     G.prune_graph()
 
     logging.info("Reading genome kmer counts.")
-    if args.genome_counts is not None:
-        G.flag_nodes(parse_jellyfish_counts(args.genome_counts))
+    G.flag_nodes(parse_jellyfish_counts(args.genome_counts))
 
     logging.info("Dumping graph to disk.")
     pickle.dump(G, args.out)
