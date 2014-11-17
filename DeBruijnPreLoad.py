@@ -24,13 +24,15 @@ def parse_args(args):
         help="Breakpoint penalty for ILP.", default=50)
     parser.add_argument("--data_penalty", "-d", type=float, 
         help="Data penalty for ILP.", default=10)
+    parser.add_argument("--name", "-n", type=str, default="tmp",
+        help="Header of output files")
     return parser.parse_args()
 
 
-def write_result(copy_map):
+def write_result(copy_map, header):
     """tmp debugging write"""
     for para in copy_map:
-        outf = open(os.path.join("output", "tmp_{}.txt".format(para)), "w")
+        outf = open(os.path.join("output", "{}_{}.txt".format(header,para)), "w")
         for x in copy_map[para]:
             outf.write("\t".join(map(str,x)) + "\n")
         outf.close()
@@ -56,7 +58,7 @@ def main(args):
     logging.info("Solved! Getting copy number.")
     copy_map = P.report_copy_number()
 
-    write_result(copy_map)
+    write_result(copy_map, args.name)
 
 
 if __name__ == '__main__':

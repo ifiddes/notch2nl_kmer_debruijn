@@ -53,6 +53,10 @@ class DeBruijnGraph(object):
         for x in self.kmers:
             yield x
 
+    def norm_kmer_iter(self):
+        for x in self.normalizing_kmers:
+            yield x
+
 
     def add_sequences(self, seqRecord):
         """
@@ -66,7 +70,7 @@ class DeBruijnGraph(object):
 
         for i in xrange(len(seqRecord)-k):
             #left and right k-1mers
-            km1L, km1R = str(seqRecord.seq[i:i+k]), str(seqRecord.seq[i+1:i+k+1])
+            km1L, km1R = str(seqRecord.seq[i:i+k]).upper(), str(seqRecord.seq[i+1:i+k+1]).upper()
 
             if self.G.has_node(km1L) is not True:
                 self.G.add_node(km1L, pos=[i], source=[name], count=1)

@@ -20,8 +20,8 @@ class Block(object):
         self.count = 0
         for kmer in topo_sorted:
             #blocks do not contain kmers that are elsewhere in the genome
-            #if 'bad' not in subgraph.node[kmer]:
-            self.kmers.add(kmer)
+            if 'bad' not in subgraph.node[kmer]:
+                self.kmers.add(kmer)
 
         #size of this window
         self.size = len(self.kmers) + len(kmer)
@@ -177,14 +177,15 @@ class KmerModel(SequenceGraphLpProblem):
         copy_map = { x : [] for x in self.block_map.keys()}
 
         for para in self.block_map:
+            copy_map[para].append(["#start","ILP_value","block_size","data_count","num_vars","var_names"])
             for start, var, block in self.block_map[para]:
                 size = block.get_size()
                 count = block.get_count()
                 num_vars = len(block.get_variables())
                 if var is not None:
                     c = pulp.value(var)
-                    copy_map[para].append([start, size-49, count, num_vars, var._LpElement__name]) 
+                    copy_map[para].append([start, c, size-49, count, num_vars, var._LpElement__name]) 
                 else:
-                    copy_map[para].append([start, size-49, count, num_vars, None]) 
+                    copy_map[para].append([start, c, size-49, count, num_vars, None]) 
 
         return copy_map
